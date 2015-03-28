@@ -643,7 +643,12 @@ enum TargetColor {
 
 ostream & operator<<( ostream & out, TargetColor const & val );
 
+#if (defined(_MSC_VER) && (_MSC_VER >= 1300))
+enum SkyrimHavokMaterial : unsigned __int64 {
+#endif
+#if (defined(_MSC_VER) && (_MSC_VER < 1300))
 enum SkyrimHavokMaterial {
+#endif
 	SKY_HAV_MAT_LIGHT_WOOD = 365420259, /*!< Light Wood */
 	SKY_HAV_MAT_BROKEN_STONE = 131151687, /*!< Broken Stone */
 	SKY_HAV_MAT_SNOW = 398949039, /*!< Snow */

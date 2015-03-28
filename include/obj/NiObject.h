@@ -26,6 +26,11 @@ All rights reserved.  Please see niflib.h for license. */
 #include <list>
 #include <map>
 #include <vector>
+
+#if (defined(_MSC_VER) && (_MSC_VER >= 1300))
+#include <algorithm>
+#endif
+
 namespace Niflib {
 using namespace std;
 
