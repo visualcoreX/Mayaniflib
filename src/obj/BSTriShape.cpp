@@ -110,6 +110,7 @@ void BSTriShape::Read( istream& in, list<unsigned int> & link_stack, const NifIn
 		const size_t expectedTriangleBytes = static_cast<size_t>(numTriangles) * 6;
 		const size_t expectedTotal = expectedVertexBytes + expectedTriangleBytes;
 		const bool useFallback = expectedTotal > remaining;
+		bool trianglesFromRaw = false;
 
 		if ( !useFallback ) {
 			vertexData.resize(numVertices);
@@ -285,12 +286,33 @@ void BSTriShape::Read( istream& in, list<unsigned int> & link_stack, const NifIn
 					vertexData[i2].uv.v = FloatToHalf(vcoord);
 				}
 			}
-		}
 
-		triangles.resize(numTriangles);
-		for (unsigned int i2 = 0; i2 < triangles.size(); i2++) {
-			NifStream( triangles[i2], in, info );
-		};
+			if ( stride > 0 ) {
+				const size_t vertexSectionBytes = stride * static_cast<size_t>(numVertices);
+				if ( vertexSectionBytes < vertexBytes ) {
+					const size_t rawTriangleBytes = vertexBytes - vertexSectionBytes;
+					const size_t rawTriangleCount = rawTriangleBytes / 6;
+					if ( rawTriangleCount > 0 ) {
+						trianglesFromRaw = true;
+						const size_t triangleCount = std::min(static_cast<size_t>(numTriangles), rawTriangleCount);
+						triangles.resize(static_cast<unsigned int>(triangleCount));
+						const unsigned char* triPtr = raw.data() + vertexSectionBytes;
+						for ( size_t t = 0; t < triangleCount; ++t ) {
+							const unsigned char* p = triPtr + t * 6;
+							triangles[static_cast<unsigned int>(t)].v1 = static_cast<unsigned short>(p[0] | (p[1] << 8));
+							triangles[static_cast<unsigned int>(t)].v2 = static_cast<unsigned short>(p[2] | (p[3] << 8));
+							triangles[static_cast<unsigned int>(t)].v3 = static_cast<unsigned short>(p[4] | (p[5] << 8));
+						}
+					}
+				}
+			}
+		}
+		if ( !trianglesFromRaw ) {
+			triangles.resize(numTriangles);
+			for (unsigned int i2 = 0; i2 < triangles.size(); i2++) {
+				NifStream( triangles[i2], in, info );
+			};
+		}
 	};
 
 	//--BEGIN POST-READ CUSTOM CODE--//
