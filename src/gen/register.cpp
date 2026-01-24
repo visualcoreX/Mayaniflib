@@ -443,6 +443,8 @@ All rights reserved.  Please see niflib.h for license. */
 #include "../../include/obj/BSBehaviorGraphExtraData.h"
 #include "../../include/obj/BSLagBoneController.h"
 #include "../../include/obj/BSLODTriShape.h"
+#include "../../include/obj/BSShape.h"
+#include "../../include/obj/BSTriShape.h"
 #include "../../include/obj/BSFurnitureMarkerNode.h"
 #include "../../include/obj/BSLeafAnimNode.h"
 #include "../../include/obj/BSTreeNode.h"
@@ -887,6 +889,8 @@ namespace Niflib {
 		ObjectRegistry::RegisterObject( "BSBehaviorGraphExtraData", BSBehaviorGraphExtraData::Create );
 		ObjectRegistry::RegisterObject( "BSLagBoneController", BSLagBoneController::Create );
 		ObjectRegistry::RegisterObject( "BSLODTriShape", BSLODTriShape::Create );
+		ObjectRegistry::RegisterObject( "BSShape", BSShape::Create );
+		ObjectRegistry::RegisterObject( "BSTriShape", BSTriShape::Create );
 		ObjectRegistry::RegisterObject( "BSFurnitureMarkerNode", BSFurnitureMarkerNode::Create );
 		ObjectRegistry::RegisterObject( "BSLeafAnimNode", BSLeafAnimNode::Create );
 		ObjectRegistry::RegisterObject( "BSTreeNode", BSTreeNode::Create );

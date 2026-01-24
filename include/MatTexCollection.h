@@ -11,6 +11,9 @@ All rights reserved.  Please see niflib.h for license. */
 #include <vector>
 #include <string>
 
+#include "../include/obj/NiMultiTextureProperty.h"
+#include "../include/obj/NiStencilProperty.h"
+
 namespace Niflib {
 
 using namespace std;

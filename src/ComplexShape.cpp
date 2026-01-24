@@ -6,6 +6,7 @@ All rights reserved.  Please see niflib.h for license. */
 #include "../include/obj/NiProperty.h"
 #include "../include/obj/NiAVObject.h"
 #include "../include/obj/NiTriBasedGeom.h"
+#include "../include/obj/BSTriShape.h"
 #include "../include/obj/NiTriShape.h"
 #include "../include/obj/NiTriStrips.h"
 #include "../include/obj/NiTriStripsData.h"
@@ -23,7 +24,7 @@ All rights reserved.  Please see niflib.h for license. */
 
 #include <stdlib.h>
 
-
+#include "obj/BSShaderPPLightingProperty.h"
 
 
 using namespace Niflib;
@@ -217,12 +218,16 @@ void ComplexShape::Merge( NiAVObject * root ) {
 	}
 
 	vector<NiTriBasedGeomRef> shapes;
+	vector<BSTriShapeRef> bsShapes;
 
 	//Determine root type
 	if ( root->IsDerivedType( NiTriBasedGeom::TYPE ) ) {
 		//The function was called on a single shape.
 		//Add it to the list
 		shapes.push_back( DynamicCast<NiTriBasedGeom>(root) );
+	} else if ( root->IsDerivedType( BSTriShape::TYPE ) ) {
+		//The function was called on a single BSTriShape.
+		bsShapes.push_back( DynamicCast<BSTriShape>(root) );
 	} else if ( root->IsDerivedType( NiNode::TYPE ) ) {
 		//The function was called on a NiNode.  Search for
 		//shape children
@@ -231,14 +236,128 @@ void ComplexShape::Merge( NiAVObject * root ) {
 		for ( unsigned int child = 0; child < children.size(); ++child ) {
 			if ( children[child]->IsDerivedType( NiTriBasedGeom::TYPE ) ) {
 				shapes.push_back( DynamicCast<NiTriBasedGeom>(children[child]) );
+			} else if ( children[child]->IsDerivedType( BSTriShape::TYPE ) ) {
+				bsShapes.push_back( DynamicCast<BSTriShape>(children[child]) );
 			}
 		}
 
-		if ( shapes.size() == 0 ) {
+		if ( shapes.size() == 0 && bsShapes.size() == 0 ) {
 			throw runtime_error("The NiNode passed to ComplexShape::Merge has no shape children.");
 		}
 	} else {
-		throw runtime_error(" The ComplexShape::Merge function requies either a NiNode or a NiTriBasedGeom AVObject.");
+		throw runtime_error(" The ComplexShape::Merge function requies either a NiNode or a supported shape AVObject.");
+	}
+
+	if ( shapes.empty() && !bsShapes.empty() ) {
+		Clear();
+		name = root->GetName();
+		propGroups.resize( bsShapes.size() );
+
+		unsigned int prop_group_index = 0;
+		unsigned int vertex_offset = 0;
+
+		for ( vector<BSTriShapeRef>::iterator geom = bsShapes.begin(); geom != bsShapes.end(); ++geom ) {
+			vector<NiPropertyRef> current_property_group;
+			array<2, NiPropertyRef> bs_properties = (*geom)->GetBSProperties();
+			if ( bs_properties[0] != NULL ) {
+				current_property_group.push_back( bs_properties[0] );
+			}
+			if ( bs_properties[1] != NULL ) {
+				current_property_group.push_back( bs_properties[1] );
+			}
+			propGroups[prop_group_index] = current_property_group;
+
+			const vector<BSVertexData> & shapeVertsData = (*geom)->GetVertexData();
+			const bool shape_has_uvs = ((*geom)->GetVertexFlags1() != 4);
+			const bool shape_has_colors = ((*geom)->GetVertexFlags1() == 6);
+
+			if ( shape_has_uvs && texCoordSets.empty() ) {
+				texCoordSets.resize(1);
+				texCoordSets[0].texType = BASE_MAP;
+				if ( vertex_offset > 0 ) {
+					texCoordSets[0].texCoords.resize(vertex_offset);
+					for ( unsigned int u = 0; u < vertex_offset; ++u ) {
+						texCoordSets[0].texCoords[u].u = 0.0f;
+						texCoordSets[0].texCoords[u].v = 0.0f;
+					}
+				}
+			}
+
+			if ( shape_has_colors && colors.empty() && vertex_offset > 0 ) {
+				colors.resize(vertex_offset);
+				for ( unsigned int c = 0; c < vertex_offset; ++c ) {
+					colors[c].r = 1.0f;
+					colors[c].g = 1.0f;
+					colors[c].b = 1.0f;
+					colors[c].a = 1.0f;
+				}
+			}
+
+			for ( unsigned int v = 0; v < shapeVertsData.size(); ++v ) {
+				WeightedVertex newVert;
+				newVert.position = Vector3(
+					HalfToFloat( shapeVertsData[v].vertex.x ),
+					HalfToFloat( shapeVertsData[v].vertex.y ),
+					HalfToFloat( shapeVertsData[v].vertex.z )
+				);
+				vertices.push_back( newVert );
+
+				if ( !texCoordSets.empty() ) {
+					TexCoord uv;
+					if ( shape_has_uvs ) {
+						uv.u = HalfToFloat( shapeVertsData[v].uv.u );
+						uv.v = HalfToFloat( shapeVertsData[v].uv.v );
+					} else {
+						uv.u = 0.0f;
+						uv.v = 0.0f;
+					}
+					texCoordSets[0].texCoords.push_back( uv );
+				}
+
+				if ( shape_has_colors || !colors.empty() ) {
+					Color4 color;
+					if ( shape_has_colors ) {
+						color.r = shapeVertsData[v].vertexColors.r / 255.0f;
+						color.g = shapeVertsData[v].vertexColors.g / 255.0f;
+						color.b = shapeVertsData[v].vertexColors.b / 255.0f;
+						color.a = shapeVertsData[v].vertexColors.a / 255.0f;
+					} else {
+						color.r = 1.0f;
+						color.g = 1.0f;
+						color.b = 1.0f;
+						color.a = 1.0f;
+					}
+					colors.push_back( color );
+				}
+			}
+
+			const vector<Triangle> & shapeTris = (*geom)->GetTriangles();
+			for ( unsigned int t = 0; t < shapeTris.size(); ++t ) {
+				const Triangle & tri = shapeTris[t];
+				ComplexFace face;
+				face.propGroupIndex = prop_group_index;
+				for ( int i = 0; i < 3; ++i ) {
+					const unsigned int idx = vertex_offset + tri[i];
+					ComplexPoint point;
+					point.vertexIndex = idx;
+					point.normalIndex = CS_NO_INDEX;
+					point.colorIndex = (shape_has_colors || !colors.empty()) ? idx : CS_NO_INDEX;
+					if ( shape_has_uvs ) {
+						TexCoordIndex uv_index;
+						uv_index.texCoordSetIndex = 0;
+						uv_index.texCoordIndex = idx;
+						point.texCoordIndices.push_back( uv_index );
+					}
+					face.points.push_back( point );
+				}
+				faces.push_back( face );
+			}
+
+			vertex_offset += static_cast<unsigned int>(shapeVertsData.size());
+			++prop_group_index;
+		}
+
+		return;
 	}
 
 	//The vector of VertNorm struts allows us to to refuse
@@ -395,6 +514,14 @@ void ComplexShape::Merge( NiAVObject * root ) {
 		niProp = (*geom)->GetPropertyByType(BSShaderTextureSet::TYPE);
 		if(niProp != NULL) {
 			bsTexProp = DynamicCast<BSShaderTextureSet>(niProp);
+		}
+		niProp = (*geom)->GetPropertyByType(BSShaderPPLightingProperty::TYPE);
+		// Process BSShaderPPLightingProperty.
+		if(niProp != NULL &&  niProp->GetType().IsSameType(BSShaderPPLightingProperty::TYPE)) {
+			BSShaderPPLightingPropertyRef bs_shader = DynamicCast<BSShaderPPLightingProperty>(niProp);
+			if (bs_shader->GetTextureSet() != NULL) {
+				bsTexProp = bs_shader->GetTextureSet();
+			}
 		}
 		niProp = (*geom)->GetBSProperties()[0];
 		if(niProp != NULL &&  niProp->GetType().IsSameType(BSLightingShaderProperty::TYPE)) {

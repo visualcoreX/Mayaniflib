@@ -3,6 +3,7 @@ All rights reserved.  Please see niflib.h for license. */
 
 #include "../include/nif_math.h"
 #include <iomanip>
+#include <limits>
 using namespace Niflib;
 
 //Constants
@@ -23,6 +24,60 @@ const InertiaMatrix InertiaMatrix::IDENTITY(
 								  1.0f, 0.0f, 0.0f, 0.0f,
 								  0.0f, 1.0f, 0.0f, 0.0f,
 								  0.0f, 0.0f, 1.0f, 0.0f );
+
+float Niflib::HalfToFloat( hfloat value ) {
+	const uint16_t sign = static_cast<uint16_t>(value & 0x8000u);
+	const uint16_t exp = static_cast<uint16_t>((value >> 10) & 0x1Fu);
+	const uint16_t mant = static_cast<uint16_t>(value & 0x03FFu);
+
+	float result;
+	if ( exp == 0 ) {
+		if ( mant == 0 ) {
+			result = 0.0f;
+		} else {
+			result = std::ldexp(static_cast<float>(mant) / 1024.0f, -14);
+		}
+	} else if ( exp == 31 ) {
+		if ( mant == 0 ) {
+			result = std::numeric_limits<float>::infinity();
+		} else {
+			result = std::numeric_limits<float>::quiet_NaN();
+		}
+	} else {
+		result = std::ldexp(1.0f + static_cast<float>(mant) / 1024.0f, static_cast<int>(exp) - 15);
+	}
+
+	return sign ? -result : result;
+}
+
+hfloat Niflib::FloatToHalf( float value ) {
+	if ( std::isnan(value) ) {
+		return static_cast<hfloat>(0x7E00u);
+	}
+	if ( std::isinf(value) ) {
+		return static_cast<hfloat>(std::signbit(value) ? 0xFC00u : 0x7C00u);
+	}
+
+	uint32_t bits = 0;
+	std::memcpy(&bits, &value, sizeof(bits));
+
+	const uint16_t sign = static_cast<uint16_t>((bits >> 16) & 0x8000u);
+	const int exp = static_cast<int>((bits >> 23) & 0xFFu) - 127 + 15;
+	uint32_t mant = bits & 0x7FFFFFu;
+
+	if ( exp <= 0 ) {
+		if ( exp < -10 ) {
+			return static_cast<hfloat>(sign);
+		}
+		mant = (mant | 0x800000u) >> (1 - exp);
+		return static_cast<hfloat>(sign | static_cast<uint16_t>(mant >> 13));
+	}
+	if ( exp >= 31 ) {
+		return static_cast<hfloat>(sign | 0x7C00u);
+	}
+
+	return static_cast<hfloat>(sign | static_cast<uint16_t>(exp << 10) | static_cast<uint16_t>(mant >> 13));
+}
 
 /* TexCoord Methods
  *
