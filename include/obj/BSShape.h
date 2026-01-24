@@ -7,30 +7,27 @@ All rights reserved.  Please see niflib.h for license. */
 // the next update.                                                          //
 //-----------------------------------NOTICE----------------------------------//
 
-#ifndef _NIMULTITEXTUREPROPERTY_H_
-#define _NIMULTITEXTUREPROPERTY_H_
-
+#ifndef _BSSHAPE_H_
+#define _BSSHAPE_H_
 
 //--BEGIN FILE HEAD CUSTOM CODE--//
+
 //--END CUSTOM CODE--//
 
-#include "NiProperty.h"
-
-// Include structures
-#include "../gen/MultiTextureElement.h"
+#include "NiAVObject.h"
 namespace Niflib {
 
-class NiMultiTextureProperty;
-typedef Ref<NiMultiTextureProperty> NiMultiTexturePropertyRef;
+class BSShape;
+typedef Ref<BSShape> BSShapeRef;
 
-/*! (note: not quite complete yet... but already reads most of the DAoC ones) */
-class NiMultiTextureProperty : public NiProperty {
+/*! Fallout 4 */
+class BSShape : public NiAVObject {
 public:
 	/*! Constructor */
-	NIFLIB_API NiMultiTextureProperty();
+	NIFLIB_API BSShape();
 
 	/*! Destructor */
-	NIFLIB_API virtual ~NiMultiTextureProperty();
+	NIFLIB_API virtual ~BSShape();
 
 	/*!
 	 * A constant value which uniquly identifies objects of this type.
@@ -57,20 +54,8 @@ public:
 	NIFLIB_API virtual const Type & GetType() const;
 
 	//--BEGIN MISC CUSTOM CODE--//
+
 	//--END CUSTOM CODE--//
-protected:
-	/*! Property flags. */
-	unsigned short flags;
-	/*!
-	 * Unknown. Always 5 for DAoC files, and always 6 for Bridge Commander.  Seems to
-	 * have nothing to do with the number of Texture Element slots that follow.
-	 */
-	unsigned int unknownInt;
-	/*!
-	 * Describes the various textures used by this mutli-texture property.  Each slot
-	 * probably has special meaning like thoes in NiTexturingProperty.
-	 */
-	Niflib::array<5,MultiTextureElement > textureElements;
 public:
 	/*! NIFLIB_HIDDEN function.  For internal use only. */
 	NIFLIB_HIDDEN virtual void Read( istream& in, list<unsigned int> & link_stack, const NifInfo & info );
@@ -85,8 +70,8 @@ public:
 };
 
 //--BEGIN FILE FOOT CUSTOM CODE--//
+
 //--END CUSTOM CODE--//
 
 } //End Niflib namespace
-
 #endif

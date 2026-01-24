@@ -8,6 +8,7 @@ All rights reserved.  Please see niflib.h for license. */
 #include <cstring> // memcpy has been moved in GCC 4.3
 #include <iostream>
 #include <stdexcept>
+#include "nif_basic_types.h"
 #include "dll_export.h"
 
 using namespace std;
@@ -36,6 +37,10 @@ struct Matrix33;
 struct Float4;
 struct Matrix44;
 struct InertiaMatrix;
+
+//Half float conversion helpers
+NIFLIB_API float HalfToFloat( hfloat value );
+NIFLIB_API hfloat FloatToHalf( float value );
 
 /*! Stores 2D texture coordinates as two floating point variables, u and v. */
 struct TexCoord {

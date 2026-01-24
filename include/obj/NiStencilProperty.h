@@ -199,4 +199,5 @@ public:
 //--END CUSTOM CODE--//
 
 } //End Niflib namespace
+
 #endif

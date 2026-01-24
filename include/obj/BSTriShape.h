@@ -7,30 +7,34 @@ All rights reserved.  Please see niflib.h for license. */
 // the next update.                                                          //
 //-----------------------------------NOTICE----------------------------------//
 
-#ifndef _NIMULTITEXTUREPROPERTY_H_
-#define _NIMULTITEXTUREPROPERTY_H_
-
+#ifndef _BSTRISHAPE_H_
+#define _BSTRISHAPE_H_
 
 //--BEGIN FILE HEAD CUSTOM CODE--//
+
 //--END CUSTOM CODE--//
 
-#include "NiProperty.h"
+#include "BSShape.h"
 
 // Include structures
-#include "../gen/MultiTextureElement.h"
+#include "../Ref.h"
+#include "../gen/BSVertexData.h"
 namespace Niflib {
 
-class NiMultiTextureProperty;
-typedef Ref<NiMultiTextureProperty> NiMultiTexturePropertyRef;
+// Forward define of referenced NIF objects
+class NiObject;
+class NiProperty;
+class BSTriShape;
+typedef Ref<BSTriShape> BSTriShapeRef;
 
-/*! (note: not quite complete yet... but already reads most of the DAoC ones) */
-class NiMultiTextureProperty : public NiProperty {
+/*! Fallout 4 */
+class BSTriShape : public BSShape {
 public:
 	/*! Constructor */
-	NIFLIB_API NiMultiTextureProperty();
+	NIFLIB_API BSTriShape();
 
 	/*! Destructor */
-	NIFLIB_API virtual ~NiMultiTextureProperty();
+	NIFLIB_API virtual ~BSTriShape();
 
 	/*!
 	 * A constant value which uniquly identifies objects of this type.
@@ -57,20 +61,45 @@ public:
 	NIFLIB_API virtual const Type & GetType() const;
 
 	//--BEGIN MISC CUSTOM CODE--//
+	NIFLIB_API const vector<BSVertexData> & GetVertexData() const;
+	NIFLIB_API const vector<Triangle> & GetTriangles() const;
+	NIFLIB_API byte GetVertexFlags1() const;
+	NIFLIB_API Niflib::array<2,Ref<NiProperty> > GetBSProperties() const;
+
 	//--END CUSTOM CODE--//
 protected:
-	/*! Property flags. */
-	unsigned short flags;
-	/*!
-	 * Unknown. Always 5 for DAoC files, and always 6 for Bridge Commander.  Seems to
-	 * have nothing to do with the number of Texture Element slots that follow.
-	 */
-	unsigned int unknownInt;
-	/*!
-	 * Describes the various textures used by this mutli-texture property.  Each slot
-	 * probably has special meaning like thoes in NiTexturingProperty.
-	 */
-	Niflib::array<5,MultiTextureElement > textureElements;
+	/*! Unknown. */
+	array<4,float > unknown4Floats;
+	/*! Unknown. */
+	Ref<NiObject > skin;
+	/*! Unknown. */
+	array<2,Ref<NiProperty > > bsProperties;
+	/*! Unknown. */
+	byte vertexflag1;
+	/*! Unknown. */
+	byte vertexflag2;
+	/*! Unknown. */
+	byte vertexflag3;
+	/*! Unknown. */
+	byte vertexflag4;
+	/*! Unknown. */
+	byte vertexflag5;
+	/*! Unknown. */
+	byte vertexflag6;
+	/*! Unknown. */
+	byte vertexflag7;
+	/*! Unknown. */
+	byte vertexflag8;
+	/*! Unknown. */
+	mutable unsigned int numTriangles;
+	/*! Unknown. */
+	mutable unsigned short numVertices;
+	/*! Unknown. */
+	unsigned int dataSize;
+	/*! Unknown. */
+	vector<BSVertexData > vertexData;
+	/*! Unknown. */
+	vector<Triangle > triangles;
 public:
 	/*! NIFLIB_HIDDEN function.  For internal use only. */
 	NIFLIB_HIDDEN virtual void Read( istream& in, list<unsigned int> & link_stack, const NifInfo & info );
@@ -85,8 +114,8 @@ public:
 };
 
 //--BEGIN FILE FOOT CUSTOM CODE--//
+
 //--END CUSTOM CODE--//
 
 } //End Niflib namespace
-
 #endif

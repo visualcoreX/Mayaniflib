@@ -989,106 +989,215 @@ NiSkinPartition::NiSkinPartition(Ref<NiTriBasedGeom> shape, int maxBonesPerParti
 
    BoneList tribones;
    int cnt = 0;
-   for (Triangles::iterator itr = triangles.begin(); itr != triangles.end(); ++itr) {
-      Triangle& tri = (*itr);
-      do
-      {
-         tribones.clear();
-         for ( int c = 0; c < 3; c++ ) {
-            BoneWeightList& bwl = weights[tri[c]];
-            for (BoneWeightList::iterator bw = bwl.begin(); bw != bwl.end(); ++bw) {
-               if ( tribones.end() == find(tribones.begin(), tribones.end(), (*bw).first ) )
-                  tribones.insert(tribones.end(), (*bw).first );
-            }
-         }
+   //for (Triangles::iterator itr = triangles.begin(); itr != triangles.end(); ++itr) {
+   //   Triangle& tri = (*itr);
+   //   do
+   //   {
+   //      tribones.clear();
+   //      for ( int c = 0; c < 3; c++ ) {
+   //         BoneWeightList& bwl = weights[tri[c]];
+   //         for (BoneWeightList::iterator bw = bwl.begin(); bw != bwl.end(); ++bw) {
+   //            if ( tribones.end() == find(tribones.begin(), tribones.end(), (*bw).first ) )
+   //               tribones.insert(tribones.end(), (*bw).first );
+   //         }
+   //      }
 
-         if ( int(tribones.size()) > maxBonesPerPartition )
-         {
-            // sum up the weights for each bone
-            // bones with weight == 1 can't be removed
+   //      if ( int(tribones.size()) > maxBonesPerPartition )
+   //      {
+   //         // sum up the weights for each bone
+   //         // bones with weight == 1 can't be removed
 
-            map<int, float> sum;
-            vector<int> nono;
+   //         map<int, float> sum;
+   //         vector<int> nono;
 
-            for ( int t = 0; t < 3; t++ ) {
-               BoneWeightList& bwl = weights[tri[t]];
-               if ( bwl.size() == 1 )
-                  nono.insert(nono.end(), bwl.front().first );
+   //         for ( int t = 0; t < 3; t++ ) {
+   //            BoneWeightList& bwl = weights[tri[t]];
+   //            if ( bwl.size() == 1 )
+   //               nono.insert(nono.end(), bwl.front().first );
 
-               for (BoneWeightList::iterator bw = bwl.begin(); bw != bwl.end(); ++bw) {
-                  sum[ (*bw).first ] += (*bw).second;
-               }                 
-            }
+   //            for (BoneWeightList::iterator bw = bwl.begin(); bw != bwl.end(); ++bw) {
+   //               sum[ (*bw).first ] += (*bw).second;
+   //            }                 
+   //         }
 
-            // select the bone to remove
+   //         // select the bone to remove
 
-            float minWeight = 5.0;
-            int minBone = -1;
+   //         float minWeight = 5.0;
+   //         int minBone = -1;
 
-            for (map<int, float>::iterator sitr = sum.begin(); sitr != sum.end(); ++sitr) {
-               int b = (*sitr).first;
-               if ( (find(nono.begin(), nono.end(), b) == nono.end()) && sum[b] < minWeight) {
-                  minWeight = sum[b];
-                  minBone = b;
-               }
-            }
+   //         for (map<int, float>::iterator sitr = sum.begin(); sitr != sum.end(); ++sitr) {
+   //            int b = (*sitr).first;
+   //            if ( (find(nono.begin(), nono.end(), b) == nono.end()) && sum[b] < minWeight) {
+   //               minWeight = sum[b];
+   //               minBone = b;
+   //            }
+   //         }
 
-            if ( minBone < 0 )	// this shouldn't never happen
-               throw runtime_error( "internal error 0x01" );
+   //         if ( minBone < 0 )	// this shouldn't never happen
+   //            throw runtime_error( "internal error 0x01" );
 
-            // do a vertex match detect
-            if ( doMatch ) {
-               for ( int a = 0; a < int(verts.size()); a++ ) {
-                  match.insert(matchmap::value_type(a, a));
-                  for ( int b = a + 1; b < int(verts.size()); b++ ) {
-                     if ( verts[a] == verts[b] && weights[a] == weights[b] ) {
-                        match.insert(matchmap::value_type(a, b));
-                        match.insert(matchmap::value_type(b, a));
-                     }
-                  }
-               }
-            }
+   //         // do a vertex match detect
+   //         if ( doMatch ) {
+   //            for ( int a = 0; a < int(verts.size()); a++ ) {
+   //               match.insert(matchmap::value_type(a, a));
+   //               for ( int b = a + 1; b < int(verts.size()); b++ ) {
+   //                  if ( verts[a] == verts[b] && weights[a] == weights[b] ) {
+   //                     match.insert(matchmap::value_type(a, b));
+   //                     match.insert(matchmap::value_type(b, a));
+   //                  }
+   //               }
+   //            }
+   //         }
 
-            // now remove that bone from all vertices of this triangle and from all matching vertices too
-            for ( int t = 0; t < 3; t++ ) {
-               bool rem = false;
+   //         // now remove that bone from all vertices of this triangle and from all matching vertices too
+   //         for ( int t = 0; t < 3; t++ ) {
+   //            bool rem = false;
 
-               matchrange range = match.equal_range(tri[t]);
-               for (matchmap::iterator itr = range.first; itr != range.second; ++itr) {
-                  int v = (*itr).second;
+   //            matchrange range = match.equal_range(tri[t]);
+   //            for (matchmap::iterator itr = range.first; itr != range.second; ++itr) {
+   //               int v = (*itr).second;
 
-                  BoneWeightList & bws = weights[ v ];
-                  BoneWeightList::iterator it = bws.begin();
-                  while ( it != bws.end() ) {
-                     BoneWeight & bw = *it;
-                     if ( bw.first == minBone ) {
-                        it = bws.erase(it);
-                        rem = true;
-                     } else {
-                        ++it;
-                     }
-                  }
+   //               BoneWeightList & bws = weights[ v ];
+   //               BoneWeightList::iterator it = bws.begin();
+   //               while ( it != bws.end() ) {
+   //                  BoneWeight & bw = *it;
+   //                  if ( bw.first == minBone ) {
+   //                     it = bws.erase(it);
+   //                     rem = true;
+   //                  } else {
+   //                     ++it;
+   //                  }
+   //               }
 
-                  float totalWeight = 0;
+   //               float totalWeight = 0;
 
-                  for (BoneWeightList::iterator bw = bws.begin(); bw != bws.end(); ++bw) {
-                     totalWeight += (*bw).second;
-                  }
+   //               for (BoneWeightList::iterator bw = bws.begin(); bw != bws.end(); ++bw) {
+   //                  totalWeight += (*bw).second;
+   //               }
 
-                  if ( totalWeight == 0 )
-                     throw runtime_error( "internal error 0x02" );
+   //               if ( totalWeight == 0 )
+   //                  throw runtime_error( "internal error 0x02" );
 
-                  // normalize
-                  for (BoneWeightList::iterator bw = bws.begin(); bw != bws.end(); ++bw) {
-                     (*bw).second /= totalWeight;
-                  }
-               }
-               if ( rem )
-                  cnt++;
-            }
-         }
-      } while ( int(tribones.size()) > maxBonesPerPartition );
-   }
+   //               // normalize
+   //               for (BoneWeightList::iterator bw = bws.begin(); bw != bws.end(); ++bw) {
+   //                  (*bw).second /= totalWeight;
+   //               }
+   //            }
+   //            if ( rem )
+   //               cnt++;
+   //         }
+   //      }
+   //   } while ( int(tribones.size()) > maxBonesPerPartition );
+   //}
+
+
+	// do a vertex match detect
+	if (doMatch) {
+		for (int a = 0; a < int(verts.size()); a++) {
+			match.insert(matchmap::value_type(a, a));
+			for (int b = a + 1; b < int(verts.size()); b++) {
+				if (verts[a] == verts[b] && weights[a] == weights[b]) {
+					match.insert(matchmap::value_type(a, b));
+					match.insert(matchmap::value_type(b, a));
+				}
+			}
+		}
+	}
+
+
+	for (int index = 0; index < triangles.size(); index++) {
+		Triangle& tri = triangles[index];
+
+		tribones.clear();
+		for (int c = 0; c < 3; c++) {
+			BoneWeightList& bwl = weights[tri[c]];
+			for (BoneWeightList::iterator bw = bwl.begin(); bw != bwl.end(); ++bw) {
+				if (tribones.end() == find(tribones.begin(), tribones.end(), (*bw).first))
+					tribones.insert(tribones.end(), (*bw).first);
+			}
+		}
+
+		int excess_bones = int(tribones.size()) - maxBonesPerPartition;
+
+		if (excess_bones > 0)
+		{
+			for (int bone_index = 0; bone_index < excess_bones; bone_index++)
+			{
+				// sum up the weights for each bone
+				// bones with weight == 1 can't be removed
+
+				map<int, float> sum;
+				vector<int> nono;
+
+				for (int t = 0; t < 3; t++) {
+					BoneWeightList& bwl = weights[tri[t]];
+					if (bwl.size() == 1)
+						nono.insert(nono.end(), bwl.front().first);
+
+					for (BoneWeightList::iterator bw = bwl.begin(); bw != bwl.end(); ++bw) {
+						sum[(*bw).first] += (*bw).second;
+					}
+				}
+
+				// select the bone to remove
+
+				float minWeight = 5.0;
+				int minBone = -1;
+
+				for (map<int, float>::iterator sitr = sum.begin(); sitr != sum.end(); ++sitr) {
+					int b = (*sitr).first;
+					if ((find(nono.begin(), nono.end(), b) == nono.end()) && sum[b] < minWeight) {
+						minWeight = sum[b];
+						minBone = b;
+					}
+				}
+
+				if (minBone < 0)	// this shouldn't never happen
+					throw runtime_error("internal error 0x01");
+
+				// now remove that bone from all vertices of this triangle and from all matching vertices too
+				for (int t = 0; t < 3; t++) {
+					bool rem = false;
+
+					matchrange range = match.equal_range(tri[t]);
+					for (matchmap::iterator itr = range.first; itr != range.second; ++itr) {
+						int v = (*itr).second;
+
+						BoneWeightList & bws = weights[v];
+						BoneWeightList::iterator it = bws.begin();
+						while (it != bws.end()) {
+							BoneWeight & bw = *it;
+							if (bw.first == minBone) {
+								it = bws.erase(it);
+								rem = true;
+							}
+							else {
+								++it;
+							}
+						}
+
+						float totalWeight = 0;
+
+						for (BoneWeightList::iterator bw = bws.begin(); bw != bws.end(); ++bw) {
+							totalWeight += (*bw).second;
+						}
+
+						if (totalWeight == 0)
+							throw runtime_error("internal error 0x02");
+
+						// normalize
+						for (BoneWeightList::iterator bw = bws.begin(); bw != bws.end(); ++bw) {
+							(*bw).second /= totalWeight;
+						}
+					}
+					if (rem)
+						cnt++;
+				}
+			}
+		}
+	}
+
+
    //if ( cnt > 0 )
    //   qWarning() << "removed" << cnt << "bone influences";
 

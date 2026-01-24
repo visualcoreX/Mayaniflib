@@ -6,6 +6,7 @@ All rights reserved.  Please see niflib.h for license. */
 
 #include <string>
 #include <stdarg.h>
+#include <cstdint>
 #include "gen/enums.h"
 #include "nif_versions.h"
 
@@ -48,6 +49,7 @@ struct Char8String : public std::string {
 #ifndef byte
 typedef unsigned char	byte;
 #endif
+typedef std::uint16_t hfloat;
 
 //--Structures--//
 
