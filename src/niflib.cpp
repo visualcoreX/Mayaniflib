@@ -34,8 +34,20 @@ All rights reserved.  Please see niflib.h for license. */
 #include "../include/obj/bhkConstraint.h"
 #include "../include/gen/Header.h"
 #include "../include/gen/Footer.h"
+#include <fstream>
+#include <sstream>
 
 namespace Niflib {
+
+namespace {
+	void AppendNifImportLog(const std::string& message) {
+		const char* logPath = "C:\\Users\\rober\\Documents\\maya\\2025\\scripts\\nifTranslator_debug.log";
+		std::ofstream log(logPath, std::ios::out | std::ios::app);
+		if (log.is_open()) {
+			log << message << std::endl;
+		}
+	}
+}
 
 //Object Registration
 bool g_objects_registered = false;
@@ -209,17 +221,18 @@ vector<NiObjectRef> ReadNifList( istream & in, list<NiObjectRef> & missing_link_
 
 	std::streampos headerpos = in.tellg();
 	std::streampos nextobjpos = headerpos;
+	const bool hasBlockSize = (header.version >= VER_20_2_0_7) && (header.blockSize.size() >= numObjects);
 
 	//Loop through all objects in the file
 	unsigned int i = 0;
 	NiObjectRef new_obj;
 	while (true) {
 
-		// Check if the size information matches in version 20.3 and greater
-		if ( header.version >= VER_20_3_0_3 ) {
+		// Align to expected block start when block sizes are available (20.2.0.7+)
+		if ( hasBlockSize ) {
 			if (nextobjpos != in.tellg()) {
-				// incorrect positioning seek to expected location
-				in.seekg(nextobjpos);				
+				in.clear();
+				in.seekg(nextobjpos);
 			}
 			// update next location
 			nextobjpos += header.blockSize[i];
@@ -309,6 +322,17 @@ vector<NiObjectRef> ReadNifList( istream & in, list<NiObjectRef> & missing_link_
 			}
 		}
 
+		{
+			std::ostringstream oss;
+			oss << "[ReadNifList] obj=" << i
+				<< " type=" << objectType
+				<< " start=" << static_cast<long long>(startobjpos);
+			if ( hasBlockSize && i < header.blockSize.size() ) {
+				oss << " expectedSize=" << header.blockSize[i];
+			}
+			AppendNifImportLog(oss.str());
+		}
+
 		//Create object of the type that was found
 		new_obj = ObjectRegistry::CreateObject(objectType);
 
@@ -336,7 +360,16 @@ vector<NiObjectRef> ReadNifList( istream & in, list<NiObjectRef> & missing_link_
 		}
 
 		//Read new object
-		new_obj->Read( in, link_stack, *info );
+		try {
+			new_obj->Read( in, link_stack, *info );
+		} catch ( const std::exception& e ) {
+			std::ostringstream oss;
+			oss << "[ReadNifList] read failed obj=" << i
+				<< " type=" << objectType
+				<< " error=" << e.what();
+			AppendNifImportLog(oss.str());
+			throw;
+		}
 
 		//Add object to map
 		objects[index] = new_obj;
@@ -349,9 +382,32 @@ vector<NiObjectRef> ReadNifList( istream & in, list<NiObjectRef> & missing_link_
 
 		// Ending position of block in stream
 		std::streampos endobjpos = in.tellg();
+		if ( hasBlockSize && i < header.blockSize.size() ) {
+			const std::streampos expectedEnd = startobjpos + static_cast<std::streamoff>(header.blockSize[i]);
+			if ( endobjpos != expectedEnd ) {
+				std::ostringstream oss;
+				oss << "[ReadNifList] obj=" << i
+					<< " type=" << objectType
+					<< " expectedEnd=" << static_cast<long long>(expectedEnd)
+					<< " actualEnd=" << static_cast<long long>(endobjpos)
+					<< " action=seek_to_expected_end";
+				AppendNifImportLog(oss.str());
+				in.clear();
+				in.seekg(expectedEnd);
+				endobjpos = expectedEnd;
+			}
+		}
+		{
+			std::ostringstream oss;
+			oss << "[ReadNifList] obj=" << i
+				<< " type=" << objectType
+				<< " end=" << static_cast<long long>(endobjpos)
+				<< " readSize=" << static_cast<long long>(endobjpos - startobjpos);
+			AppendNifImportLog(oss.str());
+		}
 
 		// Check if the size information matches
-		if ( header.version >= VER_20_3_0_3 ) {
+		if ( hasBlockSize ) {
 			std::streamsize calcobjsize = endobjpos - startobjpos;
 			unsigned int objsize = header.blockSize[i];
 			if (calcobjsize != objsize) {

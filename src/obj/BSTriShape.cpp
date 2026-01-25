@@ -88,6 +88,97 @@ void BSTriShape::Read( istream& in, list<unsigned int> & link_stack, const NifIn
 	NifStream( numTriangles, in, info );
 	NifStream( numVertices, in, info );
 	NifStream( dataSize, in, info );
+	// Handle cases where dataSize is zero but vertex/triangle data follows.
+	if ( dataSize == 0 && (numVertices > 0 || numTriangles > 0) ) {
+		const std::streampos dataStart = in.tellg();
+		in.seekg(0, std::ios::end);
+		const std::streampos dataEnd = in.tellg();
+		in.seekg(dataStart, std::ios::beg);
+		const size_t remaining = (dataEnd > dataStart) ? static_cast<size_t>(dataEnd - dataStart) : 0;
+
+		size_t expectedPerVertex = 8; // HalfVector3 + dotnormal
+		if ( vertexflag1 != 4 ) {
+			expectedPerVertex += 4; // uv
+		}
+		if ( vertexflag1 > 3 ) {
+			expectedPerVertex += 8;
+		}
+		if ( vertexflag1 == 6 ) {
+			expectedPerVertex += 4;
+		}
+		if ( vertexflag1 == 7 ) {
+			expectedPerVertex += 8;
+		}
+		if ( vertexflag1 >= 8 ) {
+			expectedPerVertex += 12; // 4 halfs + 4 bytes
+		}
+		if ( vertexflag1 == 9 ) {
+			expectedPerVertex += 4;
+		}
+		if ( vertexflag1 == 10 ) {
+			expectedPerVertex += 8;
+		}
+
+		const size_t expectedVertexBytes = static_cast<size_t>(numVertices) * expectedPerVertex;
+		const size_t expectedTriangleBytes = static_cast<size_t>(numTriangles) * 6;
+		const size_t expectedTotal = expectedVertexBytes + expectedTriangleBytes;
+
+		if ( expectedTotal == 0 || expectedTotal > remaining ) {
+			numVertices = 0;
+			numTriangles = 0;
+			return;
+		}
+
+		vertexData.resize(numVertices);
+		for (unsigned int i2 = 0; i2 < vertexData.size(); i2++) {
+			NifStream( vertexData[i2].vertex.x, in, info );
+			NifStream( vertexData[i2].vertex.y, in, info );
+			NifStream( vertexData[i2].vertex.z, in, info );
+			NifStream( vertexData[i2].dotnormal_, in, info );
+			if ( (vertexflag1 != 4) ) {
+				NifStream( vertexData[i2].uv.u, in, info );
+				NifStream( vertexData[i2].uv.v, in, info );
+			};
+			if ( (vertexflag1 > 3) ) {
+				for (unsigned int i4 = 0; i4 < 8; i4++) {
+					NifStream( vertexData[i2].unknown8Bytes[i4], in, info );
+				};
+			};
+			if ( (vertexflag1 == 6) ) {
+				NifStream( vertexData[i2].vertexColors.r, in, info );
+				NifStream( vertexData[i2].vertexColors.g, in, info );
+				NifStream( vertexData[i2].vertexColors.b, in, info );
+				NifStream( vertexData[i2].vertexColors.a, in, info );
+			};
+			if ( (vertexflag1 == 7) ) {
+				for (unsigned int i4 = 0; i4 < 2; i4++) {
+					NifStream( vertexData[i2].unknown2Ints[i4], in, info );
+				};
+			};
+			if ( (vertexflag1 >= 8) ) {
+				for (unsigned int i4 = 0; i4 < 4; i4++) {
+					NifStream( vertexData[i2].unknown4Halfs[i4], in, info );
+				};
+				for (unsigned int i4 = 0; i4 < 4; i4++) {
+					NifStream( vertexData[i2].unknown4Bytes[i4], in, info );
+				};
+			};
+			if ( (vertexflag1 == 9) ) {
+				NifStream( vertexData[i2].unknownInt1, in, info );
+			};
+			if ( (vertexflag1 == 10) ) {
+				for (unsigned int i4 = 0; i4 < 2; i4++) {
+					NifStream( vertexData[i2].unknown2Ints2[i4], in, info );
+				};
+			};
+		};
+
+		triangles.resize(numTriangles);
+		for (unsigned int i2 = 0; i2 < triangles.size(); i2++) {
+			NifStream( triangles[i2], in, info );
+		};
+		return;
+	}
 	if ( (dataSize > 0) ) {
 		const std::streampos dataStart = in.tellg();
 		in.seekg(0, std::ios::end);
@@ -126,6 +217,7 @@ void BSTriShape::Read( istream& in, list<unsigned int> & link_stack, const NifIn
 
 		const size_t expectedVertexBytes = static_cast<size_t>(numVertices) * expectedPerVertex;
 		const size_t expectedTriangleBytes = static_cast<size_t>(numTriangles) * 6;
+		const size_t remainingAfterData = (remaining > dataBytes) ? (remaining - dataBytes) : 0;
 		{
 			std::ostringstream oss;
 			oss << "[BSTriShape::Read] flags=" << static_cast<int>(vertexflag1)
@@ -142,9 +234,28 @@ void BSTriShape::Read( istream& in, list<unsigned int> & link_stack, const NifIn
 		bool trianglesFromRaw = false;
 		size_t vertexBytesUsed = 0;
 
-		if ( dataBytes >= expectedVertexBytes && numVertices > 0 ) {
+		const bool canFitTrianglesInBlock = (expectedTriangleBytes > 0 && dataBytes >= expectedTriangleBytes);
+		const bool trianglesLikelyInBlock = canFitTrianglesInBlock &&
+			(dataBytes >= expectedVertexBytes + expectedTriangleBytes || remainingAfterData < expectedTriangleBytes);
+		const size_t triangleBytesInBlock = trianglesLikelyInBlock ? expectedTriangleBytes : 0;
+		const size_t vertexBytesAvailable = (dataBytes >= triangleBytesInBlock) ? (dataBytes - triangleBytesInBlock) : dataBytes;
+
+		if (triangleBytesInBlock > 0 && numTriangles > 0) {
+			const size_t triangleCount = std::min(static_cast<size_t>(numTriangles), triangleBytesInBlock / 6);
+			triangles.resize(static_cast<unsigned int>(triangleCount));
+			const unsigned char* triPtr = raw.data() + vertexBytesAvailable;
+			for ( size_t t = 0; t < triangleCount; ++t ) {
+				const unsigned char* p = triPtr + t * 6;
+				triangles[static_cast<unsigned int>(t)].v1 = static_cast<unsigned short>(p[0] | (p[1] << 8));
+				triangles[static_cast<unsigned int>(t)].v2 = static_cast<unsigned short>(p[2] | (p[3] << 8));
+				triangles[static_cast<unsigned int>(t)].v3 = static_cast<unsigned short>(p[4] | (p[5] << 8));
+			}
+			trianglesFromRaw = true;
+		}
+
+		if ( vertexBytesAvailable >= expectedVertexBytes && numVertices > 0 ) {
 			try {
-				std::string rawStr(reinterpret_cast<const char*>(raw.data()), raw.size());
+				std::string rawStr(reinterpret_cast<const char*>(raw.data()), vertexBytesAvailable);
 				std::istringstream rawIn(rawStr, std::ios::binary);
 				vertexData.resize(numVertices);
 				for (unsigned int i2 = 0; i2 < vertexData.size(); i2++) {
@@ -202,7 +313,7 @@ void BSTriShape::Read( istream& in, list<unsigned int> & link_stack, const NifIn
 		}
 
 		if ( !parsedVertices ) {
-			const size_t vertexBytes = dataBytes;
+			const size_t vertexBytes = vertexBytesAvailable;
 			vertexData.resize(numVertices);
 			const size_t expectedVertexBytesClamped = (expectedVertexBytes > 0 && expectedVertexBytes <= vertexBytes)
 				? expectedVertexBytes
@@ -324,7 +435,7 @@ void BSTriShape::Read( istream& in, list<unsigned int> & link_stack, const NifIn
 			if ( stride > 0 ) {
 				vertexBytesUsed = stride * static_cast<size_t>(numVertices);
 			}
-			if ( expectedVertexBytes > 0 && dataBytes >= expectedVertexBytes + expectedTriangleBytes ) {
+			if ( expectedVertexBytes > 0 && vertexBytesAvailable >= expectedVertexBytes ) {
 				vertexBytesUsed = expectedVertexBytes;
 			}
 			{
@@ -336,24 +447,7 @@ void BSTriShape::Read( istream& in, list<unsigned int> & link_stack, const NifIn
 			}
 		}
 
-		if ( vertexBytesUsed < dataBytes && (dataBytes - vertexBytesUsed) >= 6 ) {
-			const size_t rawTriangleBytes = dataBytes - vertexBytesUsed;
-			const size_t rawTriangleCount = rawTriangleBytes / 6;
-			if ( rawTriangleCount > 0 ) {
-				trianglesFromRaw = true;
-				const size_t triangleCount = std::min(static_cast<size_t>(numTriangles), rawTriangleCount);
-				triangles.resize(static_cast<unsigned int>(triangleCount));
-				std::string rawStr(reinterpret_cast<const char*>(raw.data()), raw.size());
-				std::istringstream triIn(rawStr, std::ios::binary);
-				triIn.seekg(static_cast<std::streamoff>(vertexBytesUsed), std::ios::beg);
-				for ( size_t t = 0; t < triangleCount; ++t ) {
-					NifStream( triangles[static_cast<unsigned int>(t)], triIn, info );
-				}
-			}
-		}
-
 		if ( !trianglesFromRaw ) {
-			const size_t remainingAfterData = (remaining > dataBytes) ? (remaining - dataBytes) : 0;
 			const size_t maxTrianglesFromStream = remainingAfterData / 6;
 			if ( numTriangles > maxTrianglesFromStream ) {
 				numTriangles = static_cast<unsigned int>(maxTrianglesFromStream);

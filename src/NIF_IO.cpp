@@ -5,7 +5,43 @@ All rights reserved.  Please see niflib.h for license. */
 #include "../include/niflib.h"
 #include "../include/gen/Header.h"
 #include "../include/gen/ByteColor4.h"
+#include <fstream>
+#include <sstream>
 namespace Niflib {
+
+namespace {
+	void AppendNifImportLog(const std::string& message) {
+		const char* logPath = "C:\\Users\\rober\\Documents\\maya\\2025\\scripts\\nifTranslator_debug.log";
+		std::ofstream log(logPath, std::ios::out | std::ios::app);
+		if (log.is_open()) {
+			log << message << std::endl;
+		}
+	}
+
+	void LogReadFailure(const char* label, std::istream& in, std::streampos startPos, size_t expectedBytes) {
+		std::istream::iostate state = in.rdstate();
+		in.clear();
+		std::streampos curPos = in.tellg();
+		in.seekg(0, std::ios::end);
+		std::streampos endPos = in.tellg();
+		if (curPos != std::streampos(-1)) {
+			in.seekg(curPos, std::ios::beg);
+		}
+		in.setstate(state);
+
+		size_t remaining = 0;
+		if (endPos != std::streampos(-1) && startPos != std::streampos(-1) && endPos >= startPos) {
+			remaining = static_cast<size_t>(endPos - startPos);
+		}
+
+		std::ostringstream oss;
+		oss << "[NIF_IO] " << label
+			<< " fail pos=" << static_cast<long long>(startPos)
+			<< " expected=" << expectedBytes
+			<< " remaining=" << remaining;
+		AppendNifImportLog(oss.str());
+	}
+}
 
 //--Endian Support Functions--//
 EndianType DetectEndianType();
@@ -113,53 +149,71 @@ float SwapEndian( float in ) {
 int ReadInt( istream& in ){
 
 	int tmp = 0;
+	std::streampos startPos = in.tellg();
 	in.read( (char*)&tmp, 4 );
-	if (in.fail())
+	if (in.fail()) {
+	  LogReadFailure("ReadInt", in, startPos, 4);
 	  throw runtime_error("premature end of stream");
+	}
 	return tmp;
 }
 
 unsigned int ReadUInt( istream& in ){
 
 	unsigned int tmp = 0;
+	std::streampos startPos = in.tellg();
 	in.read( (char*)&tmp, 4 );
-	if (in.fail())
+	if (in.fail()) {
+	  LogReadFailure("ReadUInt", in, startPos, 4);
 	  throw runtime_error("premature end of stream");
+	}
 	return tmp;
 }
 
 unsigned short ReadUShort( istream& in ){
 
 	unsigned short tmp = 0;
+	std::streampos startPos = in.tellg();
 	in.read( (char*)&tmp, 2 );
-	if (in.fail())
+	if (in.fail()) {
+	  LogReadFailure("ReadUShort", in, startPos, 2);
 	  throw runtime_error("premature end of stream");
+	}
 	return tmp;
 }
 
 short ReadShort( istream& in ){
 
 	short tmp = 0;
+	std::streampos startPos = in.tellg();
 	in.read( (char*)&tmp, 2 );
-	if (in.fail())
+	if (in.fail()) {
+	  LogReadFailure("ReadShort", in, startPos, 2);
 	  throw runtime_error("premature end of stream");
+	}
 	return tmp;
 }
 
 byte ReadByte( istream& in ){
 
 	byte tmp = 0;
+	std::streampos startPos = in.tellg();
 	in.read( (char*)&tmp, 1 );
-	if (in.fail())
+	if (in.fail()) {
+	  LogReadFailure("ReadByte", in, startPos, 1);
 	  throw runtime_error("premature end of stream");
+	}
 	return tmp;
 }
 float ReadFloat( istream &in ){
 
 	float tmp = 0;
+	std::streampos startPos = in.tellg();
 	in.read( reinterpret_cast<char*>(&tmp), sizeof(tmp) );
-	if (in.fail())
+	if (in.fail()) {
+	  LogReadFailure("ReadFloat", in, startPos, sizeof(tmp));
 	  throw runtime_error("premature end of stream");
+	}
 	return tmp;
 }
 
@@ -170,9 +224,12 @@ string ReadString( istream &in ) {
 	    throw runtime_error("String too long. Not a NIF file or unsupported format?");
 	if ( len > 0 ) {
 	    out.resize(len);
+		std::streampos startPos = in.tellg();
 	    in.read( (char*)&out[0], len );
-	    if (in.fail())
+	    if (in.fail()) {
+	      LogReadFailure("ReadString", in, startPos, len);
 	      throw runtime_error("premature end of stream");
+	    }
 	}
 	return out;
 }
