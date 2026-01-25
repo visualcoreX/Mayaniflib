@@ -24,7 +24,19 @@ All rights reserved.  Please see niflib.h for license. */
 #include "../../include/nif_math.h"
 #include <algorithm>
 #include <cstring>
+#include <fstream>
+#include <sstream>
 using namespace Niflib;
+
+namespace {
+	void AppendNifImportLog(const std::string& message) {
+		const char* logPath = "C:\\Users\\rober\\Documents\\maya\\2025\\scripts\\nifTranslator_debug.log";
+		std::ofstream log(logPath, std::ios::out | std::ios::app);
+		if (log.is_open()) {
+			log << message << std::endl;
+		}
+	}
+}
 
 //Definition of TYPE constant
 const Type BSTriShape::TYPE("BSTriShape", &BSShape::TYPE );
@@ -82,6 +94,12 @@ void BSTriShape::Read( istream& in, list<unsigned int> & link_stack, const NifIn
 		const std::streampos dataEnd = in.tellg();
 		in.seekg(dataStart, std::ios::beg);
 		const size_t remaining = (dataEnd > dataStart) ? static_cast<size_t>(dataEnd - dataStart) : 0;
+		const size_t dataBytes = std::min(static_cast<size_t>(dataSize), remaining);
+
+		std::vector<unsigned char> raw(dataBytes);
+		if ( dataBytes > 0 ) {
+			in.read(reinterpret_cast<char*>(raw.data()), dataBytes);
+		}
 
 		size_t expectedPerVertex = 8; // HalfVector3 + dotnormal
 		if ( vertexflag1 != 4 ) {
@@ -108,72 +126,88 @@ void BSTriShape::Read( istream& in, list<unsigned int> & link_stack, const NifIn
 
 		const size_t expectedVertexBytes = static_cast<size_t>(numVertices) * expectedPerVertex;
 		const size_t expectedTriangleBytes = static_cast<size_t>(numTriangles) * 6;
-		const size_t expectedTotal = expectedVertexBytes + expectedTriangleBytes;
-		const bool useFallback = expectedTotal > remaining;
+		{
+			std::ostringstream oss;
+			oss << "[BSTriShape::Read] flags=" << static_cast<int>(vertexflag1)
+				<< " vtx=" << numVertices
+				<< " tris=" << numTriangles
+				<< " dataSize=" << dataSize
+				<< " remaining=" << remaining
+				<< " expectedVertexBytes=" << expectedVertexBytes
+				<< " expectedTriangleBytes=" << expectedTriangleBytes
+				<< " dataBytes=" << dataBytes;
+			AppendNifImportLog(oss.str());
+		}
+		bool parsedVertices = false;
 		bool trianglesFromRaw = false;
+		size_t vertexBytesUsed = 0;
 
-		if ( !useFallback ) {
+		if ( dataBytes >= expectedVertexBytes && numVertices > 0 ) {
+			try {
+				std::string rawStr(reinterpret_cast<const char*>(raw.data()), raw.size());
+				std::istringstream rawIn(rawStr, std::ios::binary);
+				vertexData.resize(numVertices);
+				for (unsigned int i2 = 0; i2 < vertexData.size(); i2++) {
+					NifStream( vertexData[i2].vertex.x, rawIn, info );
+					NifStream( vertexData[i2].vertex.y, rawIn, info );
+					NifStream( vertexData[i2].vertex.z, rawIn, info );
+					NifStream( vertexData[i2].dotnormal_, rawIn, info );
+					if ( (vertexflag1 != 4) ) {
+						NifStream( vertexData[i2].uv.u, rawIn, info );
+						NifStream( vertexData[i2].uv.v, rawIn, info );
+					};
+					if ( (vertexflag1 > 3) ) {
+						for (unsigned int i4 = 0; i4 < 8; i4++) {
+							NifStream( vertexData[i2].unknown8Bytes[i4], rawIn, info );
+						};
+					};
+					if ( (vertexflag1 == 6) ) {
+						NifStream( vertexData[i2].vertexColors.r, rawIn, info );
+						NifStream( vertexData[i2].vertexColors.g, rawIn, info );
+						NifStream( vertexData[i2].vertexColors.b, rawIn, info );
+						NifStream( vertexData[i2].vertexColors.a, rawIn, info );
+					};
+					if ( (vertexflag1 == 7) ) {
+						for (unsigned int i4 = 0; i4 < 2; i4++) {
+							NifStream( vertexData[i2].unknown2Ints[i4], rawIn, info );
+						};
+					};
+					if ( (vertexflag1 >= 8) ) {
+						for (unsigned int i4 = 0; i4 < 4; i4++) {
+							NifStream( vertexData[i2].unknown4Halfs[i4], rawIn, info );
+						};
+						for (unsigned int i4 = 0; i4 < 4; i4++) {
+							NifStream( vertexData[i2].unknown4Bytes[i4], rawIn, info );
+						};
+					};
+					if ( (vertexflag1 == 9) ) {
+						NifStream( vertexData[i2].unknownInt1, rawIn, info );
+					};
+					if ( (vertexflag1 == 10) ) {
+						for (unsigned int i4 = 0; i4 < 2; i4++) {
+							NifStream( vertexData[i2].unknown2Ints2[i4], rawIn, info );
+						};
+					};
+				};
+				std::streampos pos = rawIn.tellg();
+				if ( pos == std::streampos(-1) ) {
+					pos = static_cast<std::streampos>(expectedVertexBytes);
+				}
+				vertexBytesUsed = static_cast<size_t>(pos);
+				parsedVertices = true;
+			} catch ( const std::exception & e ) {
+				AppendNifImportLog(std::string("[BSTriShape::Read] structured vertex parse failed: ") + e.what());
+				parsedVertices = false;
+			}
+		}
+
+		if ( !parsedVertices ) {
+			const size_t vertexBytes = dataBytes;
 			vertexData.resize(numVertices);
-			for (unsigned int i2 = 0; i2 < vertexData.size(); i2++) {
-				NifStream( vertexData[i2].vertex.x, in, info );
-				NifStream( vertexData[i2].vertex.y, in, info );
-				NifStream( vertexData[i2].vertex.z, in, info );
-				NifStream( vertexData[i2].dotnormal_, in, info );
-				if ( (vertexflag1 != 4) ) {
-					NifStream( vertexData[i2].uv.u, in, info );
-					NifStream( vertexData[i2].uv.v, in, info );
-				};
-				if ( (vertexflag1 > 3) ) {
-					for (unsigned int i4 = 0; i4 < 8; i4++) {
-						NifStream( vertexData[i2].unknown8Bytes[i4], in, info );
-					};
-				};
-				if ( (vertexflag1 == 6) ) {
-					NifStream( vertexData[i2].vertexColors.r, in, info );
-					NifStream( vertexData[i2].vertexColors.g, in, info );
-					NifStream( vertexData[i2].vertexColors.b, in, info );
-					NifStream( vertexData[i2].vertexColors.a, in, info );
-				};
-				if ( (vertexflag1 == 7) ) {
-					for (unsigned int i4 = 0; i4 < 2; i4++) {
-						NifStream( vertexData[i2].unknown2Ints[i4], in, info );
-					};
-				};
-				if ( (vertexflag1 >= 8) ) {
-					for (unsigned int i4 = 0; i4 < 4; i4++) {
-						NifStream( vertexData[i2].unknown4Halfs[i4], in, info );
-					};
-					for (unsigned int i4 = 0; i4 < 4; i4++) {
-						NifStream( vertexData[i2].unknown4Bytes[i4], in, info );
-					};
-				};
-				if ( (vertexflag1 == 9) ) {
-					NifStream( vertexData[i2].unknownInt1, in, info );
-				};
-				if ( (vertexflag1 == 10) ) {
-					for (unsigned int i4 = 0; i4 < 2; i4++) {
-						NifStream( vertexData[i2].unknown2Ints2[i4], in, info );
-					};
-				};
-			};
-		} else {
-			const size_t triangleBytesMax = remaining;
-			size_t vertexBytes = std::min(static_cast<size_t>(dataSize), triangleBytesMax);
-			size_t maxTrianglesByRemaining = 0;
-			if ( triangleBytesMax > vertexBytes ) {
-				maxTrianglesByRemaining = (triangleBytesMax - vertexBytes) / 6;
-			}
-			if ( numTriangles > maxTrianglesByRemaining ) {
-				numTriangles = static_cast<unsigned int>(maxTrianglesByRemaining);
-			}
-
-			std::vector<unsigned char> raw(vertexBytes);
-			if ( vertexBytes > 0 ) {
-				in.read(reinterpret_cast<char*>(raw.data()), vertexBytes);
-			}
-
-			vertexData.resize(numVertices);
-			const size_t stride = (numVertices > 0) ? (vertexBytes / numVertices) : 0;
+			const size_t expectedVertexBytesClamped = (expectedVertexBytes > 0 && expectedVertexBytes <= vertexBytes)
+				? expectedVertexBytes
+				: vertexBytes;
+			const size_t stride = (numVertices > 0) ? (expectedVertexBytesClamped / numVertices) : 0;
 			const bool useFloatPos = stride >= 12;
 			const bool useHalfPos = !useFloatPos && stride >= 6;
 
@@ -288,31 +322,54 @@ void BSTriShape::Read( istream& in, list<unsigned int> & link_stack, const NifIn
 			}
 
 			if ( stride > 0 ) {
-				const size_t vertexSectionBytes = stride * static_cast<size_t>(numVertices);
-				if ( vertexSectionBytes < vertexBytes ) {
-					const size_t rawTriangleBytes = vertexBytes - vertexSectionBytes;
-					const size_t rawTriangleCount = rawTriangleBytes / 6;
-					if ( rawTriangleCount > 0 ) {
-						trianglesFromRaw = true;
-						const size_t triangleCount = std::min(static_cast<size_t>(numTriangles), rawTriangleCount);
-						triangles.resize(static_cast<unsigned int>(triangleCount));
-						const unsigned char* triPtr = raw.data() + vertexSectionBytes;
-						for ( size_t t = 0; t < triangleCount; ++t ) {
-							const unsigned char* p = triPtr + t * 6;
-							triangles[static_cast<unsigned int>(t)].v1 = static_cast<unsigned short>(p[0] | (p[1] << 8));
-							triangles[static_cast<unsigned int>(t)].v2 = static_cast<unsigned short>(p[2] | (p[3] << 8));
-							triangles[static_cast<unsigned int>(t)].v3 = static_cast<unsigned short>(p[4] | (p[5] << 8));
-						}
-					}
+				vertexBytesUsed = stride * static_cast<size_t>(numVertices);
+			}
+			if ( expectedVertexBytes > 0 && dataBytes >= expectedVertexBytes + expectedTriangleBytes ) {
+				vertexBytesUsed = expectedVertexBytes;
+			}
+			{
+				std::ostringstream oss;
+				oss << "[BSTriShape::Read] fallback stride=" << stride
+					<< " vertexBytesUsed=" << vertexBytesUsed
+					<< " dataBytes=" << dataBytes;
+				AppendNifImportLog(oss.str());
+			}
+		}
+
+		if ( vertexBytesUsed < dataBytes && (dataBytes - vertexBytesUsed) >= 6 ) {
+			const size_t rawTriangleBytes = dataBytes - vertexBytesUsed;
+			const size_t rawTriangleCount = rawTriangleBytes / 6;
+			if ( rawTriangleCount > 0 ) {
+				trianglesFromRaw = true;
+				const size_t triangleCount = std::min(static_cast<size_t>(numTriangles), rawTriangleCount);
+				triangles.resize(static_cast<unsigned int>(triangleCount));
+				std::string rawStr(reinterpret_cast<const char*>(raw.data()), raw.size());
+				std::istringstream triIn(rawStr, std::ios::binary);
+				triIn.seekg(static_cast<std::streamoff>(vertexBytesUsed), std::ios::beg);
+				for ( size_t t = 0; t < triangleCount; ++t ) {
+					NifStream( triangles[static_cast<unsigned int>(t)], triIn, info );
 				}
 			}
 		}
+
 		if ( !trianglesFromRaw ) {
+			const size_t remainingAfterData = (remaining > dataBytes) ? (remaining - dataBytes) : 0;
+			const size_t maxTrianglesFromStream = remainingAfterData / 6;
+			if ( numTriangles > maxTrianglesFromStream ) {
+				numTriangles = static_cast<unsigned int>(maxTrianglesFromStream);
+			}
+			{
+				std::ostringstream oss;
+				oss << "[BSTriShape::Read] reading triangles from stream count=" << numTriangles
+					<< " remainingAfterData=" << remainingAfterData;
+				AppendNifImportLog(oss.str());
+			}
 			triangles.resize(numTriangles);
 			for (unsigned int i2 = 0; i2 < triangles.size(); i2++) {
 				NifStream( triangles[i2], in, info );
 			};
 		}
+		AppendNifImportLog("[BSTriShape::Read] completed");
 	};
 
 	//--BEGIN POST-READ CUSTOM CODE--//
