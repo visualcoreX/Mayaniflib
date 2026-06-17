@@ -844,7 +844,9 @@
     <ClCompile Include="src\obj\BSSegmentedTriShape.cpp" />
     <ClCompile Include="src\obj\BSShaderLightingProperty.cpp" />
     <ClCompile Include="src\obj\BSShaderNoLightingProperty.cpp" />
-    <ClCompile Include="src\obj\BSShaderPPLightingProperty.cpp" />
+    <ClCompile Include="src\obj\BSShaderPPLightingProperty.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release - 2025|x64'">false</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="src\obj\BSShaderProperty.cpp" />
     <ClCompile Include="src\obj\BSShaderTextureSet.cpp" />
     <ClCompile Include="src\obj\BSSkyShaderProperty.cpp" />

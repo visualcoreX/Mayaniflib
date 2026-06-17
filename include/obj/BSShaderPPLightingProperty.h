@@ -62,7 +62,7 @@ public:
 
 	// Texture Set
 	// \return The current value.
-	Ref<BSShaderTextureSet > GetTextureSet() const;
+	NIFLIB_API Ref<BSShaderTextureSet> GetTextureSet() const;
 
 	// Texture Set
 	// \param[in] value The new value.
