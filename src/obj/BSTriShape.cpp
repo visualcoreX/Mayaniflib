@@ -30,7 +30,7 @@ using namespace Niflib;
 
 namespace {
 	void AppendNifImportLog(const std::string& message) {
-		const char* logPath = "C:\\Users\\rober\\Documents\\maya\\2025\\scripts\\nifTranslator_debug.log";
+		const char* logPath = "C:\\Users\\sauron\\Documents\\maya\\2025\\scripts\\nifTranslator_debug.log";
 		std::ofstream log(logPath, std::ios::out | std::ios::app);
 		if (log.is_open()) {
 			log << message << std::endl;

@@ -66,7 +66,7 @@ public:
 
 	// Texture Set
 	// \param[in] value The new value.
-	void SetTextureSet( Ref<BSShaderTextureSet > value );
+	NIFLIB_API void SetTextureSet(Ref<BSShaderTextureSet > value);
 
 	//--END CUSTOM CODE--//
 protected:
