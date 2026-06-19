@@ -78,7 +78,7 @@ public:
 
    // Shader Property Flags
    // \param[in] value The new value.
-   void SetShaderFlags( const BSShaderFlags & value );
+   NIFLIB_API void SetShaderFlags( const BSShaderFlags & value );
 
    // Unknown
    // \return The current value.
