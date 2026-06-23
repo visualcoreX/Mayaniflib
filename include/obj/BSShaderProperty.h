@@ -66,15 +66,15 @@ public:
 
    // Unknown (Set to 0x21 for NoLighting, 0x11 for Water)
    // \return The current value.
-   BSShaderType GetShaderType() const;
+   NIFLIB_API BSShaderType GetShaderType() const;
 
    // Unknown (Set to 0x21 for NoLighting, 0x11 for Water)
    // \param[in] value The new value.
-   void SetShaderType( const BSShaderType & value );
+   NIFLIB_API void SetShaderType( const BSShaderType & value );
 
    // Shader Property Flags
    // \return The current value.
-   BSShaderFlags GetShaderFlags() const;
+   NIFLIB_API BSShaderFlags GetShaderFlags() const;
 
    // Shader Property Flags
    // \param[in] value The new value.
