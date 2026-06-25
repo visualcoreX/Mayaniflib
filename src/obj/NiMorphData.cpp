@@ -258,4 +258,12 @@ void NiMorphData::SetFrameName( int n, string const & key ) {
 	morphs[n].frameName = key;
 }
 
+bool NiMorphData::GetRelativeTargets() const {
+	return relativeTargets != 0;
+}
+
+void NiMorphData::SetRelativeTargets(bool n) {
+	relativeTargets = n ? 1 : 0;
+}
+
 //--END CUSTOM CODE--//

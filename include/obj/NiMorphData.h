@@ -157,6 +157,23 @@ public:
 	*/
 	NIFLIB_API void SetFrameName( int n, string const & key );
 
+	/*!
+	 * Retrieves whether morph targets are stored as absolute vertex positions (true,
+	 * the standard/official behavior) or some other interpretation. Always true (1)
+	 * in official game files.
+	 * \return Whether morph targets use the relative/absolute convention.
+	 */
+	NIFLIB_API bool GetRelativeTargets() const;
+
+	/*!
+	 * Sets whether morph targets are stored as absolute vertex positions.
+	 * Should always be set to true (1) to match official game files; leaving this
+	 * at its default (0) causes incorrect blending/interpolation behavior in some
+	 * tools (e.g. NifSkope), since morph weights end up interpreted inverted.
+	 * \param[in] n The new value.
+	 */
+	NIFLIB_API void SetRelativeTargets(bool n);
+
 	//--END CUSTOM CODE--//
 protected:
 	/*! Number of morphing object. */
