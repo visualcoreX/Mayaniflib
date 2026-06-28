@@ -83,6 +83,12 @@ public:
 	NIFLIB_API SkyrimLayer GetSkyrimLayerCopy() const;
 	NIFLIB_API void SetSkyrimLayerCopy( SkyrimLayer value );
 
+	NIFLIB_API byte GetColFilterCopy() const;
+	NIFLIB_API void SetColFilterCopy(byte value);
+
+	NIFLIB_API byte GetFlagsAndPartNumberCopy() const;
+	NIFLIB_API void SetFlagsAndPartNumberCopy(byte value);
+
 	/*!
 	 * Gets the current translation of this rigid body.
 	 * \return The translation of this rigid body.
