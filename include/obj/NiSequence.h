@@ -92,11 +92,11 @@ public:
 
    // Refers to controlled objects.
    // \return The current value.
-   vector<ControllerLink > GetControlledBlocks() const;
+   NIFLIB_API vector<ControllerLink > GetControlledBlocks() const;
 
    // Refers to controlled objects.
    // \param[in] value The new value.
-   void SetControlledBlocks( const vector<ControllerLink >& value );
+   NIFLIB_API void SetControlledBlocks( const vector<ControllerLink >& value );
 
 	//--END CUSTOM CODE--//
 protected:
