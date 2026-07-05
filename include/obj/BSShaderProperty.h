@@ -80,6 +80,13 @@ public:
    // \param[in] value The new value.
    NIFLIB_API void SetShaderFlags( const BSShaderFlags & value );
 
+   // Shader Property Flags 2 (Fallout 3 / New Vegas). In this niflib the field
+   // is modeled as the generic "unknownInt2" and no accessor was generated for
+   // it; these header-only inline accessors expose it without changing the
+   // object layout, so no niflib DLL rebuild is needed.
+   unsigned int GetShaderFlags2() const { return (unsigned int)unknownInt2; }
+   void SetShaderFlags2( unsigned int value ) { unknownInt2 = (int)value; }
+
    // Unknown
    // \return The current value.
    float GetEnvmapScale() const;
